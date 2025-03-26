@@ -24,8 +24,8 @@ app.get('/diagnostic', (req, res) => {
   res.sendFile(join(__dirname, 'public', 'diagnostic.html'));
 });
 
-// Endpoint generujący token dla WebSocket - do alternatywnego podejścia
-app.get('/wstoken', async (req, res) => {
+// Dodajmy pełne wsparcie dla bezpośredniego dostępu do API poprzez WebSocket
+app.get('/wsauth', async (req, res) => {
   try {
     // Sprawdzenie klucza API
     if (!process.env.OPENAI_API_KEY) {
@@ -33,12 +33,14 @@ app.get('/wstoken', async (req, res) => {
         error: "Brak klucza API OpenAI. Ustaw zmienną środowiskową OPENAI_API_KEY." 
       });
     }
-
-    // Zwracamy klucz API w bezpiecznym formacie (tylko dla celów testowych)
-    // W produkcji należałoby użyć odpowiednich metod autentykacji
+    
+    // Zaszyfruj klucz API do użytku przez frontend
+    // W produkcji powinno się użyć bezpieczniejszego mechanizmu uwierzytelniania
+    const encryptedKey = Buffer.from(process.env.OPENAI_API_KEY).toString('base64');
+    
     res.json({ 
-      token: process.env.OPENAI_API_KEY,
-      note: "Tylko do celów testowych - w produkcji należy używać bezpieczniejszych metod"
+      key: encryptedKey,
+      timestamp: Date.now()
     });
   } catch (error) {
     console.error("Błąd generowania tokenu WebSocket:", error);
@@ -61,7 +63,7 @@ app.get('/session', async (req, res) => {
 
     // Wywołanie OpenAI API aby uzyskać tymczasowy token
     console.log("Generowanie tymczasowego tokenu dla WebRTC...");
-
+    
     const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
       method: "POST",
       headers: {

@@ -1,0 +1,22 @@
+// Struktura aplikacji Depilacja.pl Voice Chat
+
+// Serwer
+- index.js - główny plik serwera Express
+- package.json - konfiguracja i zależności aplikacji
+- .env - zmienne środowiskowe (zawiera OPENAI_API_KEY)
+- util/phoneNumber.js - narzędzie do konwersji numerów telefonów
+
+// Frontend - interfejs użytkownika
+- public/index.html - główny interfejs WebRTC
+- public/script.js - obsługa WebRTC i komunikacji
+- public/websocket.html - alternatywny interfejs WebSocket
+- public/websocket.js - implementacja WebSocket
+- public/diagnostic.html - narzędzia diagnostyczne
+- public/style.css - style CSS
+
+// Podstawowe endpointy
+- / - główna strona aplikacji (WebRTC)
+- /websocket.html - wersja WebSocket
+- /diagnostic.html - narzędzie diagnostyczne
+- /session - endpoint generujący token dla WebRTC
+- /wsauth - endpoint autoryzacyjny dla WebSocket

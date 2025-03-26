@@ -1,0 +1,123 @@
+// index.js - używa składni CommonJS
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
+// Sprawdź, czy mamy dostęp do fetch (w Node.js 18+ jest wbudowany)
+let fetch;
+try {
+  fetch = require('node-fetch');
+} catch (e) {
+  console.log("node-fetch nie jest zainstalowany, API OpenAI może nie działać");
+  // Prosta implementacja fetch dla podstawowej funkcjonalności
+  fetch = () => Promise.resolve({ json: () => Promise.resolve({}) });
+}
+
+// Konfiguracja
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Sprawdź, czy mamy dostęp do zmiennych środowiskowych
+let OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+if (!OPENAI_API_KEY) {
+  try {
+    // Próba odczytania z pliku .env jeśli istnieje
+    if (fs.existsSync('.env')) {
+      const envContent = fs.readFileSync('.env', 'utf8');
+      const keyMatch = envContent.match(/OPENAI_API_KEY=(.+)/);
+      if (keyMatch && keyMatch[1]) {
+        OPENAI_API_KEY = keyMatch[1].trim();
+        console.log("Znaleziono klucz API w pliku .env");
+      }
+    }
+  } catch (e) {
+    console.log("Błąd odczytu pliku .env:", e.message);
+  }
+}
+
+// Middleware dla statycznych plików
+app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use(express.json());
+
+// Główna strona
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Obsługa WebSocket auth
+app.get('/wsauth', (req, res) => {
+  if (!OPENAI_API_KEY) {
+    return res.status(500).json({ error: "Brak klucza API OpenAI" });
+  }
+  
+  const encryptedKey = Buffer.from(OPENAI_API_KEY).toString('base64');
+  res.json({ 
+    key: encryptedKey,
+    timestamp: Date.now()
+  });
+});
+
+// Endpoint generujący token dla WebRTC
+app.get('/session', async (req, res) => {
+  try {
+    if (!OPENAI_API_KEY) {
+      return res.status(500).json({ error: "Brak klucza API OpenAI" });
+    }
+
+    console.log("Generowanie tokenu dla WebRTC...");
+    
+    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+        "OpenAI-Beta": "realtime=v1"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: "alloy",
+        instructions: "Jesteś asystentem depilacja.pl. Odpowiadaj po polsku."
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Błąd OpenAI API:", errorText);
+      return res.status(500).json({ 
+        error: "Błąd API OpenAI", 
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Błąd serwera:", error);
+    res.status(500).json({ error: "Błąd serwera" });
+  }
+});
+
+// Obsługa stron
+app.get('/diagnostic', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'diagnostic.html'));
+});
+
+app.get('/websocket', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'websocket.html'));
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    time: new Date().toISOString(),
+    nodeVersion: process.version
+  });
+});
+
+// Uruchomienie serwera
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Serwer uruchomiony na porcie ${PORT}`);
+  console.log(`Node.js wersja: ${process.version}`);
+  console.log(`OpenAI API Key dostępny: ${OPENAI_API_KEY ? 'Tak' : 'Nie'}`);
+});

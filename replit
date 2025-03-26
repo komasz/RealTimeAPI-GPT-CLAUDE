@@ -3,11 +3,11 @@ entrypoint = "index.js"
 
 hidden = [".config", "package-lock.json"]
 
-[nix]
-channel = "stable-22_11"
-
 [env]
 OPENAI_API_KEY = ""
+
+[nix]
+channel = "stable-23_11"
 
 [deployment]
 run = ["npm", "start"]

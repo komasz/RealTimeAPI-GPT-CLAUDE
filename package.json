@@ -1,15 +1,16 @@
 {
-  "name": "nodejs",
+  "name": "depilacja-pl-voice-chat",
   "version": "1.0.0",
-  "description": "",
+  "description": "Aplikacja czatu głosowego z AI dla depilacja.pl",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "keywords": [],
+  "keywords": ["openai", "voice", "assistant"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "@types/node": "^22.13.11"
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7"
   }
 }

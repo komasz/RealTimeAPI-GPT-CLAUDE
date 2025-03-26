@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostyka Depilacja.pl</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #ff6b81;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .log-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            margin-bottom: 20px;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 3px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        .info {
+            color: blue;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #ff6b81;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Diagnostyka API OpenAI Realtime</h1>
+        <p>Ta strona służy do diagnostyki połączenia z OpenAI Realtime API dla aplikacji Depilacja.pl</p>
+        
+        <div class="log-container" id="logContainer">
+            <div class="log-entry info">Diagnostyka gotowa do uruchomienia.</div>
+        </div>
+        
+        <div class="controls">
+            <button id="testSessionBtn">1. Test sesji API</button>
+            <button id="testWebRTCBtn" disabled>2. Test połączenia WebRTC</button>
+            <button id="testWebSocketBtn">3. Test połączenia WebSocket</button>
+            <button id="clearLogBtn">Wyczyść log</button>
+            <button id="downloadLogBtn">Pobierz logi</button>
+        </div>
+        
+        <div class="results" id="results">
+            <h2>Wyniki diagnostyki:</h2>
+            <div id="resultsSummary">Uruchom testy, aby zobaczyć wyniki.</div>
+        </div>
+    </div>
+    
+    <script>
+        // Elementy DOM
+        const logContainer = document.getElementById('logContainer');
+        const testSessionBtn = document.getElementById('testSessionBtn');
+        const testWebRTCBtn = document.getElementById('testWebRTCBtn');
+        const testWebSocketBtn = document.getElementById('testWebSocketBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const resultsSummary = document.getElementById('resultsSummary');
+        
+        // Funkcja dodająca log
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = message;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // Czyszczenie logów
+        clearLogBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+            addLog('Logi wyczyszczone.', 'info');
+            resultsSummary.textContent = 'Uruchom testy, aby zobaczyć wyniki.';
+        });
+        
+        // Test 1: Uzyskiwanie tokenu sesji
+        testSessionBtn.addEventListener('click', async () => {
+            testSessionBtn.disabled = true;
+            addLog('Rozpoczynam test uzyskiwania tokenu sesji...', 'info');
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/session');
+                const endTime = Date.now();
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog(`Błąd: ${response.status} ${response.statusText}`, 'error');
+                    addLog(`Szczegóły: ${errorText}`, 'error');
+                    resultsSummary.innerHTML = 'Test sesji API: <span class="error">BŁĄD</span>';
+                } else {
+                    const data = await response.json();
+                    addLog(`Odpowiedź uzyskana w ${endTime - startTime}ms`, 'success');
+                    
+                    if (data.client_secret && data.client_secret.value) {
+                        addLog('Token sesji uzyskany pomyślnie.', 'success');
+                        
+                        // Zapisać część tokenu do wyświetlenia (bezpiecznie)
+                        const token = data.client_secret.value;
+                        const maskedToken = token.substring(0, 10) + '...' + token.substring(token.length - 5);
+                        addLog(`Token: ${maskedToken}`, 'info');
+                        
+                        resultsSummary.innerHTML = 'Test sesji API: <span class="success">SUKCES</span>';
+                        testWebRTCBtn.disabled = false;
+                        
+                        // Zapisz token do wykorzystania w kolejnych testach
+                        window.sessionToken = token;
+                    } else {
+                        addLog('Odpowiedź nie zawiera poprawnego tokenu.', 'error');
+                        addLog(`Struktura odpowiedzi: ${JSON.stringify(data, null, 2)}`, 'info');
+                        resultsSummary.innerHTML = 'Test sesji API: <span class="error">BŁĄD</span>';
+                    }
+                }
+            } catch (error) {
+                addLog(`Wyjątek: ${error.message}`, 'error');
+                resultsSummary.innerHTML = 'Test sesji API: <span class="error">BŁĄD</span>';
+            } finally {
+                testSessionBtn.disabled = false;
+            }
+        });
+        
+        // Test 2: Połączenie WebRTC
+        testWebRTCBtn.addEventListener('click', async () => {
+            testWebRTCBtn.disabled = true;
+            addLog('Rozpoczynam test połączenia WebRTC...', 'info');
+            
+            if (!window.sessionToken) {
+                addLog('Brak tokenu sesji. Najpierw wykonaj test sesji API.', 'error');
+                testWebRTCBtn.disabled = false;
+                return;
+            }
+            
+            try {
+                // Utwórz połączenie WebRTC
+                addLog('Tworzenie połączenia WebRTC...', 'info');
+                const pc = new RTCPeerConnection();
+                
+                // Ustawienie timeoutów na każdym etapie
+                const timeout = (ms) => new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error(`Timeout po ${ms}ms`)), ms)
+                );
+                
+                // Nasłuchiwanie wydarzeń ICE
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        addLog(`ICE Candidate: ${event.candidate.candidate.substring(0, 50)}...`, 'info');
+                    } else {
+                        addLog('Zbieranie ICE Candidates zakończone.', 'info');
+                    }
+                };
+                
+                pc.oniceconnectionstatechange = () => {
+                    addLog(`Stan połączenia ICE: ${pc.iceConnectionState}`, 'info');
+                };
+                
+                // Utworzenie kanału danych
+                addLog('Tworzenie kanału danych...', 'info');
+                const dc = pc.createDataChannel('oai-events');
+                
+                dc.onopen = () => {
+                    addLog('Kanał danych otwarty!', 'success');
+                    // Wysłanie wiadomości testowej
+                    try {
+                        dc.send(JSON.stringify({type: "ping", timestamp: Date.now()}));
+                        addLog('Wysłano wiadomość testową', 'success');
+                    } catch (e) {
+                        addLog(`Błąd wysyłania wiadomości: ${e.message}`, 'error');
+                    }
+                };
+                
+                dc.onmessage = (e) => {
+                    addLog(`Otrzymano wiadomość: ${e.data.substring(0, 100)}...`, 'success');
+                };
+                
+                dc.onerror = (e) => {
+                    addLog(`Błąd kanału danych: ${e}`, 'error');
+                };
+                
+                // Próba uzyskania dostępu do mikrofonu
+                addLog('Uzyskiwanie dostępu do mikrofonu...', 'info');
+                try {
+                    const ms = await Promise.race([
+                        navigator.mediaDevices.getUserMedia({audio: true}),
+                        timeout(10000)
+                    ]);
+                    addLog('Dostęp do mikrofonu uzyskany.', 'success');
+                    pc.addTrack(ms.getTracks()[0]);
+                } catch (e) {
+                    addLog(`Błąd dostępu do mikrofonu: ${e.message}`, 'error');
+                    resultsSummary.innerHTML += '<br>Test WebRTC: <span class="error">BŁĄD</span>';
+                    testWebRTCBtn.disabled = false;
+                    return;
+                }
+                
+                // Tworzenie oferty SDP
+                addLog('Tworzenie oferty SDP...', 'info');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                addLog('Wysyłanie oferty do API OpenAI...', 'info');
+                // Nawiązywanie połączenia z OpenAI
+                const baseUrl = "https://api.openai.com/v1/realtime";
+                const model = "gpt-4o-realtime-preview-2024-12-17";
+                
+                const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
+                    method: "POST",
+                    body: offer.sdp,
+                    headers: {
+                        Authorization: `Bearer ${window.sessionToken}`,
+                        "Content-Type": "application/sdp",
+                        "OpenAI-Beta": "realtime=v1"
+                    },
+                });
+                
+                if (!sdpResponse.ok) {
+                    const errorText = await sdpResponse.text();
+                    addLog(`Błąd odpowiedzi API OpenAI: ${sdpResponse.status}`, 'error');
+                    addLog(`Szczegóły: ${errorText}`, 'error');
+                    resultsSummary.innerHTML += '<br>Test WebRTC: <span class="error">BŁĄD</span>';
+                } else {
+                    const sdpText = await sdpResponse.text();
+                    addLog('Otrzymano odpowiedź SDP z API.', 'success');
+                    
+                    // Ustawienie remote description
+                    addLog('Konfiguracja Remote Description...', 'info');
+                    const answer = {
+                        type: "answer",
+                        sdp: sdpText
+                    };
+                    
+                    await pc.setRemoteDescription(answer);
+                    addLog('Remote Description skonfigurowane.', 'success');
+                    
+                    // Czekamy na ustanowienie połączenia
+                    addLog('Oczekiwanie na ustanowienie połączenia...', 'info');
+                    
+                    // Ustawmy timeout na ustanowienie połączenia
+                    setTimeout(() => {
+                        const state = pc.iceConnectionState;
+                        if (state === 'connected' || state === 'completed') {
+                            addLog('Połączenie WebRTC nawiązane!', 'success');
+                            resultsSummary.innerHTML += '<br>Test WebRTC: <span class="success">SUKCES</span>';
+                        } else {
+                            addLog(`Połączenie WebRTC nie zostało ustanowione. Stan: ${state}`, 'error');
+                            resultsSummary.innerHTML += '<br>Test WebRTC: <span class="error">BŁĄD</span>';
+                        }
+                    }, 10000);
+                }
+            } catch (error) {
+                addLog(`Wyjątek podczas testu WebRTC: ${error.message}`, 'error');
+                resultsSummary.innerHTML += '<br>Test WebRTC: <span class="error">BŁĄD</span>';
+            } finally {
+                // Przycisku nie odblokowujemy od razu, tylko dopiero po zakończeniu timeoutu
+                setTimeout(() => {
+                    testWebRTCBtn.disabled = false;
+                }, 11000);
+            }
+        });
+        
+        // Test 3: Połączenie WebSocket (alternatywna metoda)
+        testWebSocketBtn.addEventListener('click', async () => {
+            testWebSocketBtn.disabled = true;
+            addLog('Rozpoczynam test połączenia WebSocket...', 'info');
+            
+            // Ten test będzie wymagał tokenu autoryzacyjnego z backendowego endpointu
+            // Dodamy go w serwerze
+            try {
+                const response = await fetch('/wstoken');
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addLog(`Błąd pobierania tokenu WebSocket: ${response.status}`, 'error');
+                    addLog(`Szczegóły: ${errorText}`, 'error');
+                    resultsSummary.innerHTML += '<br>Test WebSocket: <span class="error">BŁĄD</span>';
+                    testWebSocketBtn.disabled = false;
+                    return;
+                }
+                
+                const data = await response.json();
+                if (!data.token) {
+                    addLog('Odpowiedź nie zawiera tokenu WebSocket.', 'error');
+                    resultsSummary.innerHTML += '<br>Test WebSocket: <span class="error">BŁĄD</span>';
+                    testWebSocketBtn.disabled = false;
+                    return;
+                }
+                
+                addLog('Token WebSocket uzyskany pomyślnie.', 'success');
+                addLog('Próba ustanowienia połączenia WebSocket...', 'info');
+                
+                // Ten przypadek testowy zostanie dokończony po dodaniu wsparcia po stronie serwera
+                addLog('Funkcjonalność WebSocket będzie dostępna po aktualizacji serwera.', 'info');
+                resultsSummary.innerHTML += '<br>Test WebSocket: <span class="info">NIEDOSTĘPNY</span>';
+            } catch (error) {
+                addLog(`Wyjątek podczas testu WebSocket: ${error.message}`, 'error');
+                resultsSummary.innerHTML += '<br>Test WebSocket: <span class="error">BŁĄD</span>';
+            } finally {
+                testWebSocketBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

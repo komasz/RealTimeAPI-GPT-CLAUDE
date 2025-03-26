@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depilacja.pl - Asystent (WebSocket)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Depilacja.pl - Wersja WebSocket</h1>
+            <p>Asystent głosowy do rezerwacji zabiegów</p>
+            <p><a href="/" style="color: #ff6b81;">Przejdź do wersji WebRTC</a> | <a href="diagnostic.html" style="color: #ff6b81;">Diagnostyka</a></p>
+        </header>
+
+        <main>
+            <div class="conversation-container">
+                <div id="conversation-log">
+                    <div class="message system">
+                        Witaj w asystencie Depilacja.pl (wersja WebSocket)! Naciśnij przycisk "Rozpocznij rozmowę", 
+                        aby porozmawiać o zabiegach depilacji lub umówić wizytę.
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div id="status-indicator">
+                    <span id="status-text">Gotowy do rozmowy</span>
+                    <div id="voice-indicator" class="inactive"></div>
+                </div>
+                
+                <div class="buttons">
+                    <button id="start-button" class="button primary">Rozpocznij rozmowę</button>
+                    <button id="stop-button" class="button secondary" disabled>Zakończ rozmowę</button>
+                </div>
+                
+                <div class="audio-controls">
+                    <button id="start-recording" class="button record" disabled>Naciśnij, aby mówić</button>
+                    <div class="audio-label">Nagrywanie: <span id="recording-status">Wyłączone</span></div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>© 2024 Depilacja.pl - Powered by OpenAI GPT-4o</p>
+            <p><a href="index.html">Wersja WebRTC</a> | <a href="diagnostic.html">Diagnostyka</a></p>
+        </footer>
+    </div>
+
+    <!-- Overlay wyświetlany podczas łączenia z API -->
+    <div id="loading-overlay" class="hidden">
+        <div class="loader"></div>
+        <p>Łączenie z asystentem...</p>
+    </div>
+
+    <script src="websocket.js"></script>
+</body>
+</html>
